@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fitness Tracker</title>
+    <style>
+        :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --accent: #bb86fc; --danger: #cf6679; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 15px; }
+        .tab-nav { display: flex; gap: 5px; margin-bottom: 20px; }
+        .tab-btn { background: #333; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 5px; flex: 1; }
+        .tab-btn.active { background: var(--accent); color: black; font-weight: bold; }
+        .content { display: none; }
+        .content.active { display: block; }
+        .card { background: var(--card); padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        input { width: 100%; padding: 10px; margin: 5px 0; background: #333; color: white; border: 1px solid #444; border-radius: 4px; box-sizing: border-box; }
+        button { padding: 8px 12px; background: var(--accent); color: black; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .progress-container { width: 100%; background-color: #333; border-radius: 10px; margin: 15px 0; overflow: hidden; height: 25px; }
+        #progressBar { height: 100%; width: 0%; transition: width 0.3s; background-color: #03dac6; }
+        .over-bar { background-color: var(--danger) !important; }
+        .item-entry { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; font-size: 0.9em; }
+        .routine-day { margin-bottom: 25px; border-left: 3px solid #555; padding-left: 15px; }
+        .routine-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #2a2a2a; }
+        .action-btn { background: none !important; border: none !important; cursor: pointer; padding: 2px 5px !important; }
+        .add-input-area { display: none; margin-top: 8px; }
+        .add-input-area.show { display: block; }
+        .plus-btn { background: none !important; color: var(--accent) !important; border: 1px solid var(--accent) !important; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .day-box { background: #333; padding: 8px 2px; text-align: center; border-radius: 4px; font-size: 1.1em; min-height: 50px; cursor: pointer; }
+        .cal-good { background: #1b5e20 !important; } /* Green for under/on goal */
+        .cal-bad { background: #b71c1c !important; }  /* Red for over goal */
+        /* Calendar Headers */
+        .cal-header { text-align: center; font-weight: bold; color: var(--accent); padding-bottom: 5px; }
+        /* Larger calorie text */
+        .cal-total-text { font-size: 1.1em; font-weight: bold; display: block; margin-top: 4px; }
+         /* Adjusted grid to include headers */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('log')">Tracker</button>
+        <button class="tab-btn" onclick="switchTab('routine')">Routine</button>
+        <button class="tab-btn" onclick="switchTab('calendar')">Calendar</button>
+    </div>
+
+    <div id="log" class="content active">
+        <div class="card">
+            <label>Daily Goal:</label>
+            <input type="number" id="goal" value="2000" onchange="updateTracker()">
+            <div class="progress-container"><div id="progressBar"></div></div>
+            <p id="statusText">0 / 2000 kcal</p>
+            <input type="text" id="food" placeholder="Food item">
+            <input type="number" id="cals" placeholder="Calories">
+            <button onclick="addEntry()">Add Entry</button>
+            <div id="itemList" style="margin-top: 15px;"></div>
+        </div>
+    </div>
+
+    <div id="routine" class="content">
+        <div class="card" id="routineContainer"></div>
+    </div>
+
+    <div id="calendar" class="content">
+        <h3 id="monthTitle"></h3>
+        <div class="calendar-grid" id="calGrid"></div>
+    </div>
+
+    <script>
+        // Data Loaders with defensive fallback
+        let log = JSON.parse(localStorage.getItem('calLog') || '{}');
+        let routines = JSON.parse(localStorage.getItem('routineData') || '{"0":[],"1":[],"2":[],"3":[],"4":[],"5":[],"6":[]}');
+        let goal = parseInt(localStorage.getItem('calGoal') || 2000);
+        document.getElementById('goal').value = goal;
+
+        function switchTab(id) {
+            document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.currentTarget.classList.add('active');
+            if(id === 'log') updateTracker();
+            if(id === 'routine') renderRoutine();
+            if(id === 'calendar') renderCalendar();
+        }
+
+        function updateTracker() {
+            const date = new Date().toISOString().split('T')[0];
+            if (!log[date]) log[date] = { total: 0, items: [] };
+            if (!log[date].items) log[date].items = [];
+            
+            const data = log[date];
+            const g = parseInt(document.getElementById('goal').value);
+            localStorage.setItem('calGoal', g);
+            
+            const p = Math.min((data.total / g) * 100, 100);
+            const bar = document.getElementById('progressBar');
+            bar.style.width = p + '%';
+            bar.className = data.total > g ? 'over-bar' : '';
+            document.getElementById('statusText').innerText = `${data.total} / ${g} kcal`;
+            
+            const list = document.getElementById('itemList');
+            list.innerHTML = '<strong>Today\'s Items:</strong>';
+            data.items.forEach(i => list.innerHTML += `<div class="item-entry"><span>${i.name}</span><span>${i.cals} kcal</span></div>`);
+        }
+
+        function addEntry() {
+            const date = new Date().toISOString().split('T')[0];
+            const food = document.getElementById('food').value;
+            const cals = parseInt(document.getElementById('cals').value) || 0;
+            if(!food) return;
+            
+            if(!log[date]) log[date] = { total: 0, items: [] };
+            if(!log[date].items) log[date].items = [];
+            
+            log[date].total = (log[date].total || 0) + cals;
+            log[date].items.push({ name: food, cals: cals });
+            
+            localStorage.setItem('calLog', JSON.stringify(log));
+            document.getElementById('food').value = '';
+            document.getElementById('cals').value = '';
+            updateTracker();
+        }
+
+      // --- Routine Functions ---
+        function renderRoutine() {
+            const container = document.getElementById('routineContainer');
+            container.innerHTML = '<h3>Weekly Plan</h3>';
+            ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach((day, i) => {
+                let div = document.createElement('div');
+                div.className = 'routine-day';
+                div.innerHTML = `<div style="display:flex; justify-content:space-between;">
+                                    <strong>${day}</strong>
+                                    <button class="plus-btn" onclick="toggleInput(${i})">+</button>
+                                 </div>
+                                 <div id="list-${i}"></div>
+                                 <div id="input-area-${i}" class="add-input-area">
+                                    <input type="text" id="in-${i}">
+                                    <button onclick="addR(${i})">Add</button>
+                                 </div>`;
+                container.appendChild(div);
+                
+                (routines[i] || []).forEach((item, idx) => {
+                    document.getElementById(`list-${i}`).innerHTML += `
+                        <div class="routine-item">
+                            <span>${item}</span>
+                            <div>
+                                <button class="action-btn" onclick="editR(${i}, ${idx})">✎</button>
+                                <button class="action-btn" style="color:var(--danger)" onclick="delR(${i}, ${idx})">✕</button>
+                            </div>
+                        </div>`;
+                });
+            });
+        }
+
+        function editR(day, idx) {
+            const currentName = routines[day][idx];
+            const newName = prompt("Edit exercise:", currentName);
+            if (newName !== null && newName.trim() !== "") {
+                routines[day][idx] = newName;
+                localStorage.setItem('routineData', JSON.stringify(routines));
+                renderRoutine();
+            }
+        }
+        
+        function toggleInput(i) { document.getElementById(`input-area-${i}`).classList.toggle('show'); }
+        function addR(i) { 
+            const val = document.getElementById('in-'+i).value;
+            if(val) { 
+                routines[i].push(val); 
+                localStorage.setItem('routineData', JSON.stringify(routines)); 
+                renderRoutine(); 
+            } 
+        }
+        function delR(i, idx) { 
+            routines[i].splice(idx, 1); 
+            localStorage.setItem('routineData', JSON.stringify(routines)); 
+            renderRoutine(); 
+        }
+
+        function toggleInput(i) { document.getElementById(`input-area-${i}`).classList.toggle('show'); }
+        function addR(i) { routines[i].push(document.getElementById('in-'+i).value); localStorage.setItem('routineData', JSON.stringify(routines)); renderRoutine(); }
+        function delR(i, idx) { routines[i].splice(idx, 1); localStorage.setItem('routineData', JSON.stringify(routines)); renderRoutine(); }
+        
+        function renderCalendar() {
+            const grid = document.getElementById('calGrid');
+            grid.innerHTML = '';
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            
+            // Add Day Headers
+            ["S","M","T","W","T","F","S"].forEach(day => {
+                grid.innerHTML += `<div class="cal-header">${day}</div>`;
+            });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            document.getElementById('monthTitle').innerText = now.toLocaleString('default', { month: 'long' });
+
+            // Empty boxes for alignment
+            for (let i = 0; i < firstDay; i++) { grid.innerHTML += `<div></div>`; }
+
+            // Calendar Days
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                const dayData = log[dateKey];
+                
+                const box = document.createElement('div');
+                box.className = 'day-box';
+                box.innerHTML = `<strong>${i}</strong>`;
+
+                if (dayData && dayData.total > 0) {
+                    box.classList.add(dayData.total > goal ? 'cal-bad' : 'cal-good');
+                    box.innerHTML += `<span class="cal-total-text">${dayData.total}</span>`;
+                }
+                
+                // Detailed On-Click
+                box.onclick = () => {
+                    if (dayData && dayData.items && dayData.items.length > 0) {
+                        let details = `Items for ${dateKey}:\n\n`;
+                        dayData.items.forEach(item => {
+                            details += `- ${item.name}: ${item.cals} kcal\n`;
+                        });
+                        details += `\nTotal: ${dayData.total} kcal`;
+                        alert(details);
+                    } else {
+                        alert(`No data for ${dateKey}`);
+                    }
+                };
+                grid.appendChild(box);
+            }
+        }
+        
+        updateTracker();
+    </script>
+</body>
+</html>
