@@ -177,31 +177,51 @@ document.getElementById('foodList').innerHTML = data.items.map((i, index) =>
             });
         }
 
-        // Calendar Logic
         function renderCalendar() {
-            const data = getData();
-            const grid = document.getElementById('calGrid');
-            grid.innerHTML = '';
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            document.getElementById('monthTitle').innerText = now.toLocaleString('default', { month: 'long' });
-            ["S","M","T","W","T","F","S"].forEach(d => grid.innerHTML += `<div class="cal-header">${d}</div>`);
-            for (let i = 1; i <= daysInMonth; i++) {
-                const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                const day = data[dateKey];
-                const box = document.createElement('div');
-                box.className = 'day-box';
-                if (day && day.total > 0) box.classList.add(day.total > goal ? 'cal-bad' : 'cal-good');
-                box.innerHTML = `<strong>${i}</strong>` + (day?.total ? `<br>${day.total}` : '') + (day?.weight ? `<br>${day.weight}lbs` : '');
-                box.onclick = () => {
-                    const foods = day?.items?.map(it => `${it.name}: ${it.cals}kcal`).join('\n') || "No food logged.";
-                    alert(`Date: ${dateKey}\nWeight: ${day?.weight || 'N/A'}\nCalories: ${day?.total || 0}\n\nFoods:\n${foods}`);
-                };
-                grid.appendChild(box);
-            }
+    const data = getData();
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    
+    // Get current date, explicitly using local time components
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    
+    // Get total days in the month
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    document.getElementById('monthTitle').innerText = now.toLocaleString('default', { month: 'long' });
+    
+    // Add Headers
+    ["S","M","T","W","T","F","S"].forEach(d => grid.innerHTML += `<div class="cal-header">${d}</div>`);
+    
+    // Determine the start day of the week for the 1st of the month
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    
+    // Add empty slots for days before the 1st
+    for (let i = 0; i < firstDayOfMonth; i++) {
+        grid.innerHTML += `<div></div>`;
+    }
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const day = data[dateKey];
+        const box = document.createElement('div');
+        box.className = 'day-box';
+        
+        if (day && day.total > 0) {
+            box.classList.add(day.total > goal ? 'cal-bad' : 'cal-good');
         }
+        
+        box.innerHTML = `<strong>${i}</strong>` + (day?.total ? `<br>${day.total}` : '') + (day?.weight ? `<br>${day.weight}lbs` : '');
+        
+        box.onclick = () => {
+            const foods = day?.items?.map(it => `${it.name}: ${it.cals}kcal`).join('\n') || "No food logged.";
+            alert(`Date: ${dateKey}\nWeight: ${day?.weight || 'N/A'}\nCalories: ${day?.total || 0}\n\nFoods:\n${foods}`);
+        };
+        grid.appendChild(box);
+    }
+}
         
         // Init
         document.getElementById('dateSelector').value = new Date().toISOString().split('T')[0];
