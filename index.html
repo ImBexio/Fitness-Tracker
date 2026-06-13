@@ -94,20 +94,30 @@
         function updateGoal(val) { goal = val; localStorage.setItem('calGoal', goal); document.getElementById('goalValue').innerText = goal; updateUI(); }
         
         function updateUI() {
-            const date = document.getElementById('dateSelector').value;
-            const data = getData()[date] || { total: 0, items: [], weight: '' };
-            document.getElementById('progressBar').style.width = Math.min((data.total / goal) * 100, 100) + '%';
-            document.getElementById('statusText').innerText = `${data.total} / ${goal} kcal`;
-            document.getElementById('weightInput').value = data.weight || '';
-            document.getElementById('savedWeightDisplay').innerText = data.weight ? data.weight + " lbs" : "None";
-            // Replace the current foodList mapping line in updateUI() with this:
-document.getElementById('foodList').innerHTML = data.items.map((i, index) => 
-    `<div class="task-item">
-        ${i.name}: ${i.cals}kcal 
-        <button onclick="removeFood(${index})">X</button>
-    </div>`
-).join('');
-        }
+    const date = document.getElementById('dateSelector').value;
+    const data = getData()[date] || { total: 0, items: [], weight: '' };
+    const progressEl = document.getElementById('progressBar');
+    
+    // Calculate percentage
+    const percent = Math.min((data.total / goal) * 100, 100);
+    progressEl.style.width = percent + '%';
+    
+    // Color coding logic:
+    // Green (#1b5e20) if under goal, Red (#b71c1c) if over goal
+    progressEl.style.backgroundColor = data.total > goal ? '#b71c1c' : '#1b5e20';
+    
+    document.getElementById('statusText').innerText = `${data.total} / ${goal} kcal`;
+    document.getElementById('weightInput').value = data.weight || '';
+    document.getElementById('savedWeightDisplay').innerText = data.weight ? data.weight + " lbs" : "None";
+    
+    // Update the food list with delete button as discussed previously
+    document.getElementById('foodList').innerHTML = data.items.map((i, index) => 
+        `<div class="task-item">
+            ${i.name}: ${i.cals}kcal 
+            <button onclick="removeFood(${index})">X</button>
+        </div>`
+    ).join('');
+}
 
         function addEntry() {
             const date = document.getElementById('dateSelector').value;
