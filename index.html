@@ -22,7 +22,7 @@
         .cal-header { text-align: center; font-weight: bold; color: var(--accent); }
         .cal-good { background: var(--good) !important; }
         .cal-bad { background: var(--bad) !important; }
-        .task-item { display: flex; justify-content: space-between; background: #2a2a2a; padding: 5px; margin: 2px 0; border-radius: 3px; font-size: 0.9em; }
+        .task-item { display: flex; justify-content: space-between; background: #2a2a2a; padding: 5px; margin: 2px 0; border-radius: 3px; font-size: 0.9em; align-items: center; }
     </style>
 </head>
 <body>
@@ -52,9 +52,9 @@
 
         <div class="card">
             <h3>Burned Calories</h3>
-            <input type="number" id="burnedCals" placeholder="Calories Burned (Exercise)">
-            <button onclick="saveBurned()">Save Exercise</button>
-            <p>Total Burned: <span id="burnedDisplay">0</span> kcal</p>
+            <input type="number" id="burnedCals" placeholder="Calories Burned">
+            <button onclick="saveBurned()">Set/Update Burned</button>
+            <div id="burnedDisplay" style="margin-top:10px;"></div>
         </div>
 
         <div class="card">
@@ -112,10 +112,17 @@
             bar.style.backgroundColor = (data.total > goal) ? '#b71c1c' : '#03dac6';
             
             document.getElementById('statusText').innerText = `${data.total} / ${goal} kcal consumed`;
-            document.getElementById('burnedDisplay').innerText = data.burned || 0;
             document.getElementById('weightInput').value = data.weight || '';
             document.getElementById('savedWeightDisplay').innerText = data.weight ? data.weight + " lbs" : "None";
-            document.getElementById('foodList').innerHTML = data.items.map(i => `<div>${i.name}: ${i.cals}kcal</div>`).join('');
+            
+            // Food List with Remove Button
+            document.getElementById('foodList').innerHTML = data.items.map((i, idx) => 
+                `<div class="task-item">${i.name}: ${i.cals}kcal <button onclick="removeFood(${idx})">X</button></div>`
+            ).join('');
+
+            // Burned section with Remove Button
+            document.getElementById('burnedDisplay').innerHTML = data.burned > 0 ? 
+                `<div class="task-item">Burned: ${data.burned}kcal <button onclick="removeBurned()">X</button></div>` : '0 kcal burned';
         }
 
         function addEntry() {
@@ -132,6 +139,15 @@
             updateUI();
         }
 
+        function removeFood(idx) {
+            let data = getData();
+            const date = document.getElementById('dateSelector').value;
+            data[date].total -= data[date].items[idx].cals;
+            data[date].items.splice(idx, 1);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            updateUI();
+        }
+
         function saveBurned() {
             const date = document.getElementById('dateSelector').value;
             const burned = parseInt(document.getElementById('burnedCals').value) || 0;
@@ -140,6 +156,14 @@
             data[date].burned = burned;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             document.getElementById('burnedCals').value = '';
+            updateUI();
+        }
+
+        function removeBurned() {
+            let data = getData();
+            const date = document.getElementById('dateSelector').value;
+            data[date].burned = 0;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             updateUI();
         }
 
@@ -177,25 +201,26 @@
         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
         const day = data[dateKey] || { total: 0, burned: 0, items: [], weight: '' };
         
-        // Calculate Net: Consumed minus Burned
+        // Calculate Net Calories
         const net = (day.total || 0) - (day.burned || 0);
         
         const box = document.createElement('div');
         box.className = 'day-box';
         
-        // Use Net for color coding: If net exceeds goal, mark bad
+        // Use Net for color coding: 
+        // We check if there was any activity to determine if it should be green/red
         if (day.total > 0 || day.burned > 0) {
             box.classList.add(net > goal ? 'cal-bad' : 'cal-good');
         }
         
-        // Show Net Calories and Weight
+        // Display Net Calories
         box.innerHTML = `<strong>${i}</strong>` + 
                         `<br>${net}` + 
                         (day.weight ? `<br>${day.weight}lbs` : '');
         
         box.onclick = () => {
-            const foods = day?.items?.map(it => `${it.name}: ${it.cals}kcal`).join('\n') || "No food logged.";
-            alert(`Date: ${dateKey}\nWeight: ${day?.weight || 'N/A'}\nConsumed: ${day?.total || 0}\nBurned: ${day?.burned || 0}\nNet Calories: ${net}\n\nFoods:\n${foods}`);
+            const foods = day.items?.map(it => `${it.name}: ${it.cals}kcal`).join('\n') || "No food logged.";
+            alert(`Date: ${dateKey}\nWeight: ${day.weight || 'N/A'}\nConsumed: ${day.total || 0}\nBurned: ${day.burned || 0}\nNet Calories: ${net}\n\nFoods:\n${foods}`);
         };
         grid.appendChild(box);
     }
