@@ -127,13 +127,23 @@
 
     function addEntry() {
         const date = document.getElementById('dateSelector').value;
-        const name = document.getElementById('food').value;
-        const cals = parseInt(document.getElementById('cals').value) || 0;
+        const foodInput = document.getElementById('food');
+        const calsInput = document.getElementById('cals');
+    
+        const name = foodInput.value;
+        const cals = parseInt(calsInput.value) || 0;
+    
         if (!name) return;
         if (!state.data[date]) state.data[date] = { total: 0, burned: 0, items: [], weight: '' };
+    
         state.data[date].total += cals;
         state.data[date].items.push({ name, cals });
         localStorage.setItem('fitData', JSON.stringify(state.data));
+    
+        // Clear the fields
+        foodInput.value = '';
+        calsInput.value = '';
+    
         updateUI();
     }
 
