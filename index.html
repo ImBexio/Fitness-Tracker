@@ -29,6 +29,14 @@
 <body>
 
 <div class="app-container">
+    <div id="dayModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:100; justify-content:center; align-items:center;">
+        <div class="card" style="width:90%; max-width:400px; position:relative;">
+            <button onclick="closeModal()" style="width:auto; padding:5px 15px; margin-bottom:10px; background:var(--danger)">Close</button>
+            <h2 id="modalDate">Date</h2>
+            <div id="modalDetails"></div>
+        </div>
+    </div>
+
     <div class="tab-nav">
         <button class="tab-btn active" onclick="switchTab('log')">Tracker</button>
         <button class="tab-btn" onclick="switchTab('calendar')">Calendar</button>
@@ -105,16 +113,13 @@
     function updateUI() {
         const date = document.getElementById('dateSelector').value;
         const day = state.data[date] || { total: 0, burned: 0, items: [], weight: '' };
-        
         document.getElementById('caloriesDisplay').innerText = `${day.total} / ${state.goal} kcal consumed`;
         document.getElementById('savedWeightDisplay').innerText = day.weight ? `${day.weight} lbs` : 'N/A';
         document.getElementById('weightInput').value = day.weight || '';
-        
         const percent = Math.min((day.total / state.goal) * 100, 100);
         const bar = document.getElementById('progressBar');
         bar.style.width = percent + '%';
         bar.style.backgroundColor = (day.total > state.goal) ? '#b71c1c' : '#03dac6';
-        
         document.getElementById('foodList').innerHTML = day.items.map((i, idx) => 
             `<div class="task-item">${i.name} (${i.cals} kcal) <button style="width:auto; padding:2px 8px" onclick="removeEntry(${idx})">X</button></div>`
         ).join('');
@@ -165,22 +170,47 @@
         const month = now.getMonth();
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-        
+    
         document.getElementById('monthTitle').innerText = now.toLocaleString('default', { month: 'long' });
         ["S","M","T","W","T","F","S"].forEach(d => grid.innerHTML += `<div class="cal-header">${d}</div>`);
         for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
-        
+    
         for (let i = 1; i <= daysInMonth; i++) {
             const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
             const day = state.data[dateKey] || { total: 0, burned: 0, weight: '' };
             const net = (day.total ?? 0) - (day.burned ?? 0);
+        
             const box = document.createElement('div');
             box.className = 'day-box';
-            if ((day.total ?? 0) > 0 || (day.burned ?? 0) > 0) box.classList.add(net > state.goal ? 'cal-bad' : 'cal-good');
-            box.innerHTML = `<strong>${i}</strong><br>${net}${day.weight ? `<br>${day.weight}lb` : ''}`;
+            box.onclick = () => showModal(dateKey, day);
+        
+            // Color logic
+            if ((day.total ?? 0) > 0 || (day.burned ?? 0) > 0) {
+                box.classList.add(net > state.goal ? 'cal-bad' : 'cal-good');
+            }
+        
+            // ADDED: Logic to display weight if it exists
+            const weightDisplay = day.weight ? `<br><small>${day.weight}lb</small>` : '';
+        
+            box.innerHTML = `<strong>${i}</strong><br>${net}${weightDisplay}`;
             grid.appendChild(box);
         }
     }
+
+    function showModal(date, data) {
+        document.getElementById('modalDate').innerText = date;
+        document.getElementById('modalDetails').innerHTML = `
+            <p>Consumed: <b>${data.total ?? 0}</b> | Burned: <b>${data.burned ?? 0}</b></p>
+            <p>Weight: <b>${data.weight || 'N/A'} lbs</b></p>
+            <hr>
+            <div style="max-height:200px; overflow-y:auto;">
+                ${(data.items || []).map(i => `<div>• ${i.name}: ${i.cals} kcal</div>`).join('')}
+            </div>
+        `;
+        document.getElementById('dayModal').style.display = 'flex';
+    }
+
+    function closeModal() { document.getElementById('dayModal').style.display = 'none'; }
 
     function addTask() {
         const day = document.getElementById('daySelect').value;
@@ -209,7 +239,6 @@
         renderRoutine();
     }
 
-    // Initialization
     document.getElementById('dateSelector').valueAsDate = new Date();
     document.getElementById('goalSlider').value = state.goal;
     document.getElementById('goalValue').innerText = state.goal;
