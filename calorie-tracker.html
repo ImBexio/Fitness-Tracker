@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitTrack Pro</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FitTrack">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="Fitness App Logo.png">
+
+    <style>
+        :root { --primary: #8b5cf6; --bg: #0f172a; --card-bg: #1e293b; --text: #f8fafc; --text-muted: #94a3b8; --danger: #ef4444; --good: #1b5e20; --bad: #b71c1c; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
+        .app-container { width: 100%; max-width: 450px; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 16px; margin-bottom: 16px; }
+        .tab-nav { display: flex; background: #0f172a; padding: 4px; border-radius: 12px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; background: transparent; color: var(--text-muted); cursor: pointer; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .content { display: none; }
+        .content.active { display: block; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
+        .day-box { background: #334155; padding: 10px 2px; border-radius: 4px; font-size: 0.75em; cursor: pointer; min-height: 50px; }
+        .cal-header { font-weight: bold; color: var(--primary); font-size: 0.8em; }
+        .cal-good { background: var(--good) !important; }
+        .cal-bad { background: var(--bad) !important; }
+        .progress-container { width: 100%; background-color: #334155; border-radius: 10px; margin: 15px 0; overflow: hidden; height: 20px; }
+        #progressBar { height: 100%; width: 0%; transition: width 0.3s; background-color: #03dac6; }
+        input, button, select { width: 100%; padding: 10px; margin: 5px 0; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; font-size: 16px; }
+        button { background: var(--primary); font-weight: bold; cursor: pointer; }
+        .task-item { display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 8px; border-radius: 6px; margin-top: 5px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="dayModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:100; justify-content:center; align-items:center;">
+        <div class="card" style="width:90%; max-width:400px; position:relative;">
+            <button onclick="closeModal()" style="width:auto; padding:5px 15px; margin-bottom:10px; background:var(--danger)">Close</button>
+            <h2 id="modalDate">Date</h2>
+            <div id="modalDetails"></div>
+        </div>
+    </div>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('log')">Tracker</button>
+        <button class="tab-btn" onclick="switchTab('calendar')">Calendar</button>
+        <button class="tab-btn" onclick="switchTab('routine')">Routine</button>
+    </div>
+
+    <div id="log" class="content active">
+        <div class="card">
+            <input type="date" id="dateSelector" onchange="updateUI()">
+            <div class="progress-container"><div id="progressBar"></div></div>
+            <h3 id="caloriesDisplay" style="text-align:center;">0 / 2000 kcal</h3>
+            <label>Daily Calorie Goal: <span id="goalValue">2000</span> kcal</label>
+            <input type="range" id="goalSlider" min="1000" max="4000" step="50" value="2000" oninput="updateGoal(this.value)">
+        </div>
+        <div class="card">
+            <input type="text" id="food" placeholder="Food Name">
+            <input type="number" id="cals" placeholder="Calories">
+            <button onclick="addEntry()">Add Food</button>
+            <div id="foodList"></div>
+            <hr style="border:0; border-top:1px solid #334155; margin:15px 0;">
+            <input type="number" id="burnedCals" placeholder="Burned Calories">
+            <button onclick="saveBurned()">Set Burned</button>
+        </div>
+        <div class="card">
+            <input type="number" id="weightInput" placeholder="Weight (lbs)">
+            <button onclick="saveWeight()">Save Weight</button>
+            <p>Saved: <span id="savedWeightDisplay">N/A</span></p>
+        </div>
+        <div class="card">
+            <button onclick="exportData()" style="background: #334155;">Export Data (Backup)</button>
+            <input type="file" id="importFile" onchange="importData(event)" style="display:none;">
+            <button onclick="document.getElementById('importFile').click()" style="background: #334155; margin-top: 5px;">Import Data (Restore)</button>
+        </div>
+    </div>
+
+    <div id="calendar" class="content">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <button onclick="changeMonth(-1)" style="width: 40px; padding: 5px; font-size: 14px;">&lt;</button>
+                <div id="monthTitle" style="font-weight:bold; font-size: 1.1em; text-align: center; flex-grow: 1;"></div>
+                <button onclick="changeMonth(1)" style="width: 40px; padding: 5px; font-size: 14px;">&gt;</button>
+            </div>
+            <div class="calendar-grid" id="calGrid"></div>
+        </div>
+    </div>
+
+    <div id="routine" class="content">
+        <div class="card">
+            <select id="daySelect">
+                <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+                <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+            </select>
+            <input type="text" id="taskInput" placeholder="New Task">
+            <button onclick="addTask()">Add Task</button>
+            <div id="routineDisplay"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const state = {
+        data: JSON.parse(localStorage.getItem('fitData') || '{}'),
+        routine: JSON.parse(localStorage.getItem('myRoutine') || '{}'),
+        goal: parseInt(localStorage.getItem('calGoal') || 2000)
+    };
+
+    let viewDate = new Date(); // Tracks the currently displayed month
+
+    function switchTab(id) {
+        document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.currentTarget.classList.add('active');
+        if(id === 'calendar') renderCalendar();
+        if(id === 'routine') renderRoutine();
+    }
+
+    // --- Backup & Restore Functions ---
+    function exportData() {
+        const data = {
+            fitData: localStorage.getItem('fitData'),
+            myRoutine: localStorage.getItem('myRoutine'),
+            calGoal: localStorage.getItem('calGoal')
+        };
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'fittrack-backup.json';
+        a.click();
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = JSON.parse(e.target.result);
+            localStorage.setItem('fitData', data.fitData);
+            localStorage.setItem('myRoutine', data.myRoutine);
+            localStorage.setItem('calGoal', data.calGoal);
+            location.reload();
+        };
+        reader.readAsText(file);
+    }
+    // ----------------------------------
+
+    function updateGoal(val) {
+        state.goal = parseInt(val);
+        document.getElementById('goalValue').innerText = val;
+        localStorage.setItem('calGoal', state.goal);
+        updateUI();
+    }
+
+    function updateUI() {
+        const date = document.getElementById('dateSelector').value;
+        const day = state.data[date] || { total: 0, burned: 0, items: [], weight: '' };
+        document.getElementById('caloriesDisplay').innerText = `${day.total} / ${state.goal} kcal consumed`;
+        document.getElementById('savedWeightDisplay').innerText = day.weight ? `${day.weight} lbs` : 'N/A';
+        document.getElementById('weightInput').value = day.weight || '';
+        const percent = Math.min((day.total / state.goal) * 100, 100);
+        const bar = document.getElementById('progressBar');
+        bar.style.width = percent + '%';
+        bar.style.backgroundColor = (day.total > state.goal) ? '#b71c1c' : '#03dac6';
+        document.getElementById('foodList').innerHTML = day.items.map((i, idx) => 
+            `<div class="task-item">${i.name} (${i.cals} kcal) <button style="width:auto; padding:2px 8px" onclick="removeEntry(${idx})">X</button></div>`
+        ).join('');
+    }
+
+    function addEntry() {
+        const date = document.getElementById('dateSelector').value;
+        const foodInput = document.getElementById('food');
+        const calsInput = document.getElementById('cals');
+        const name = foodInput.value;
+        const cals = parseInt(calsInput.value) || 0;
+        if (!name) return;
+        if (!state.data[date]) state.data[date] = { total: 0, burned: 0, items: [], weight: '' };
+        state.data[date].total += cals;
+        state.data[date].items.push({ name, cals });
+        localStorage.setItem('fitData', JSON.stringify(state.data));
+        foodInput.value = ''; calsInput.value = '';
+        updateUI();
+    }
+
+    function removeEntry(idx) {
+        const date = document.getElementById('dateSelector').value;
+        state.data[date].total -= state.data[date].items[idx].cals;
+        state.data[date].items.splice(idx, 1);
+        localStorage.setItem('fitData', JSON.stringify(state.data));
+        updateUI();
+    }
+
+    function saveBurned() {
+        const date = document.getElementById('dateSelector').value;
+        const cals = parseInt(document.getElementById('burnedCals').value) || 0;
+        if (!state.data[date]) state.data[date] = { total: 0, burned: 0, items: [], weight: '' };
+        state.data[date].burned = cals;
+        localStorage.setItem('fitData', JSON.stringify(state.data));
+        updateUI();
+    }
+
+    function saveWeight() {
+        const date = document.getElementById('dateSelector').value;
+        if (!state.data[date]) state.data[date] = { total: 0, burned: 0, items: [], weight: '' };
+        state.data[date].weight = document.getElementById('weightInput').value;
+        localStorage.setItem('fitData', JSON.stringify(state.data));
+        updateUI();
+    }
+
+    function changeMonth(delta) {
+        viewDate.setMonth(viewDate.getMonth() + delta);
+        renderCalendar();   
+    }
+
+    function renderCalendar() {
+        const grid = document.getElementById('calGrid');
+        grid.innerHTML = '';
+    
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+    
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+        document.getElementById('monthTitle').innerText = 
+            viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+        
+        ["S","M","T","W","T","F","S"].forEach(d => grid.innerHTML += `<div class="cal-header">${d}</div>`);
+        for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
+    
+        for (let i = 1; i <= daysInMonth; i++) {
+            const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            const day = state.data[dateKey] || { total: 0, burned: 0, weight: '' };
+            const net = (day.total ?? 0) - (day.burned ?? 0);
+            const box = document.createElement('div');
+            box.className = 'day-box';
+            box.onclick = () => showModal(dateKey, day);
+        
+            // Coloring logic
+            if ((day.total ?? 0) > 0 || (day.burned ?? 0) > 0) {
+                box.classList.add(net > state.goal ? 'cal-bad' : 'cal-good');
+            }
+        
+            box.innerHTML = `<strong>${i}</strong><br>${net}${day.weight ? `<br><small>${day.weight}lb</small>` : ''}`;
+            grid.appendChild(box);
+        }
+    }
+
+    function showModal(date, data) {
+        document.getElementById('modalDate').innerText = date;
+        document.getElementById('modalDetails').innerHTML = `<p>Consumed: <b>${data.total ?? 0}</b> | Burned: <b>${data.burned ?? 0}</b></p><p>Weight: <b>${data.weight || 'N/A'} lbs</b></p><hr><div style="max-height:200px; overflow-y:auto;">${(data.items || []).map(i => `<div>• ${i.name}: ${i.cals} kcal</div>`).join('')}</div>`;
+        document.getElementById('dayModal').style.display = 'flex';
+    }
+
+    function closeModal() { document.getElementById('dayModal').style.display = 'none'; }
+
+    function addTask() {
+        const day = document.getElementById('daySelect').value;
+        const task = document.getElementById('taskInput').value;
+        if (!task) return;
+        if (!state.routine[day]) state.routine[day] = [];
+        state.routine[day].push(task);
+        localStorage.setItem('myRoutine', JSON.stringify(state.routine));
+        renderRoutine();
+    }
+
+    function renderRoutine() {
+        const container = document.getElementById('routineDisplay');
+        container.innerHTML = '';
+        Object.keys(state.routine).forEach(day => {
+            container.innerHTML += `<div style="margin-top:10px"><strong>${day}</strong></div>`;
+            state.routine[day].forEach((t, i) => { container.innerHTML += `<div class="task-item">${t} <button style="width:auto; padding:2px 8px" onclick="removeTask('${day}',${i})">X</button></div>`; });
+        });
+    }
+
+    function removeTask(day, idx) {
+        state.routine[day].splice(idx, 1);
+        localStorage.setItem('myRoutine', JSON.stringify(state.routine));
+        renderRoutine();
+    }
+
+    document.getElementById('dateSelector').valueAsDate = new Date();
+    document.getElementById('goalSlider').value = state.goal;
+    document.getElementById('goalValue').innerText = state.goal;
+    updateUI();
+</script>
+</body>
+</html>
