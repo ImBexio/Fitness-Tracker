@@ -11,7 +11,6 @@
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="Fitness App Logo.png">
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #8b5cf6; --bg: #0f172a; --card-bg: #1e293b; --text: #f8fafc; --text-muted: #94a3b8; --danger: #ef4444; --good: #1b5e20; --bad: #b71c1c; }
         body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
@@ -73,20 +72,17 @@
             <button onclick="saveWeight()">Save Weight</button>
             <p>Saved: <span id="savedWeightDisplay">N/A</span></p>
         </div>
+        <div class="card">
+            <button onclick="exportData()" style="background: #334155;">Export Data (Backup)</button>
+            <input type="file" id="importFile" onchange="importData(event)" style="display:none;">
+            <button onclick="document.getElementById('importFile').click()" style="background: #334155; margin-top: 5px;">Import Data (Restore)</button>
+        </div>
     </div>
 
     <div id="calendar" class="content">
         <div class="card">
             <div id="monthTitle" style="text-align:center; margin-bottom:10px; font-weight:bold;"></div>
             <div class="calendar-grid" id="calGrid"></div>
-        </div>
-        <div class="card">
-            <div style="display: flex; gap: 5px; margin-bottom: 10px;">
-                <button onclick="renderChart('week')" style="flex:1; padding:5px;">Week</button>
-                <button onclick="renderChart('month')" style="flex:1; padding:5px;">Month</button>
-                <button onclick="renderChart('year')" style="flex:1; padding:5px;">Year</button>
-            </div>
-            <canvas id="calorieChart"></canvas>
         </div>
     </div>
 
@@ -109,43 +105,44 @@
         routine: JSON.parse(localStorage.getItem('myRoutine') || '{}'),
         goal: parseInt(localStorage.getItem('calGoal') || 2000)
     };
-    let myChart = null;
 
     function switchTab(id) {
         document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(id).classList.add('active');
         event.currentTarget.classList.add('active');
-        if(id === 'calendar') { renderCalendar(); renderChart('week'); }
+        if(id === 'calendar') renderCalendar();
         if(id === 'routine') renderRoutine();
     }
 
-    function renderChart(range = 'week') {
-        const ctx = document.getElementById('calorieChart').getContext('2d');
-        const labels = [];
-        const data = [];
-        let daysToLookBack = (range === 'month') ? 30 : (range === 'year') ? 365 : 7;
-        
-        for (let i = daysToLookBack; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dateKey = d.toISOString().split('T')[0];
-            const dayData = state.data[dateKey] || { total: 0, burned: 0 };
-            
-            if (range === 'week') labels.push(d.toLocaleDateString(undefined, { weekday: 'short' }));
-            else if (range === 'month') labels.push(d.getDate() === 1 ? d.toLocaleDateString(undefined, { month: 'short' }) : '');
-            else labels.push(d.getMonth() === 0 && d.getDate() === 1 ? d.getFullYear() : '');
-            
-            data.push((dayData.total || 0) - (dayData.burned || 0));
-        }
-
-        if (myChart) myChart.destroy();
-        myChart = new Chart(ctx, {
-            type: 'line',
-            data: { labels: labels, datasets: [{ label: 'Net Cals', data: data, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.3, pointRadius: (range === 'year') ? 0 : 3 }] },
-            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
-        });
+    // --- Backup & Restore Functions ---
+    function exportData() {
+        const data = {
+            fitData: localStorage.getItem('fitData'),
+            myRoutine: localStorage.getItem('myRoutine'),
+            calGoal: localStorage.getItem('calGoal')
+        };
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'fittrack-backup.json';
+        a.click();
     }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = JSON.parse(e.target.result);
+            localStorage.setItem('fitData', data.fitData);
+            localStorage.setItem('myRoutine', data.myRoutine);
+            localStorage.setItem('calGoal', data.calGoal);
+            location.reload();
+        };
+        reader.readAsText(file);
+    }
+    // ----------------------------------
 
     function updateGoal(val) {
         state.goal = parseInt(val);
@@ -223,11 +220,11 @@
         for (let i = 1; i <= daysInMonth; i++) {
             const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
             const day = state.data[dateKey] || { total: 0, burned: 0, weight: '' };
-            const net = (day.total || 0) - (day.burned || 0);
+            const net = (day.total ?? 0) - (day.burned ?? 0);
             const box = document.createElement('div');
             box.className = 'day-box';
             box.onclick = () => showModal(dateKey, day);
-            if ((day.total || 0) > 0 || (day.burned || 0) > 0) box.classList.add(net > state.goal ? 'cal-bad' : 'cal-good');
+            if ((day.total ?? 0) > 0 || (day.burned ?? 0) > 0) box.classList.add(net > state.goal ? 'cal-bad' : 'cal-good');
             box.innerHTML = `<strong>${i}</strong><br>${net}${day.weight ? `<br><small>${day.weight}lb</small>` : ''}`;
             grid.appendChild(box);
         }
