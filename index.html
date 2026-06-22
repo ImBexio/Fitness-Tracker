@@ -24,7 +24,7 @@
         .cal-bad { background: var(--bad) !important; }
         .progress-container { width: 100%; background-color: #334155; border-radius: 10px; margin: 15px 0; overflow: hidden; height: 20px; }
         #progressBar { height: 100%; width: 0%; transition: width 0.3s; background-color: #03dac6; }
-        input, button, select { width: 100%; padding: 10px; margin: 5px 0; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
+        input, button, select { width: 100%; padding: 10px; margin: 5px 0; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; font-size: 16px; }
         button { background: var(--primary); font-weight: bold; cursor: pointer; }
         .task-item { display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 8px; border-radius: 6px; margin-top: 5px; font-size: 0.9em; }
     </style>
@@ -327,7 +327,7 @@
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        const date = new Date().toISOString().split('T')[0];
+        const _n=new Date(); const date=`${_n.getFullYear()}-${String(_n.getMonth()+1).padStart(2,'0')}-${String(_n.getDate()).padStart(2,'0')}`;
         a.href = url;
         a.download = `fittrack-backup-${date}.json`;
         a.click();
@@ -364,7 +364,7 @@
         reader.readAsText(file);
     }
 
-    document.getElementById('dateSelector').valueAsDate = new Date();
+    const _t=new Date(); document.getElementById('dateSelector').value=`${_t.getFullYear()}-${String(_t.getMonth()+1).padStart(2,'0')}-${String(_t.getDate()).padStart(2,'0')}`;
     document.getElementById('goalSlider').value = state.goal;
     document.getElementById('goalValue').innerText = state.goal;
     updateUI();
