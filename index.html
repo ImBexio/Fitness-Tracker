@@ -31,14 +31,7 @@
         .meal-label { font-size: 0.75em; font-weight: bold; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 8px 0 4px; }
         .meal-breakfast { border-left: 3px solid #f59e0b; padding-left: 6px; }
         .day-section { margin-bottom: 14px; }
-        .food-search-results { background: #0f172a; border-radius: 8px; margin-top: 4px; max-height: 220px; overflow-y: auto; }
-        .food-result-item { padding: 10px 12px; border-bottom: 1px solid #1e293b; cursor: pointer; font-size: 0.88em; display: flex; justify-content: space-between; align-items: center; }
-        .food-result-item:last-child { border-bottom: none; }
-        .food-result-item:hover { background: #1e293b; }
-        .food-result-item:active { background: #334155; }
-        .food-result-name { flex: 1; color: var(--text); }
-        .food-result-cal { color: #03dac6; font-weight: bold; font-size: 0.9em; white-space: nowrap; margin-left: 10px; }
-        .search-status { font-size: 0.8em; color: var(--text-muted); padding: 8px 12px; text-align: center; }
+
         .day-header { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 6px; }
         .day-title { font-weight: bold; font-size: 0.95em; color: var(--primary); }
         .day-progress { font-size: 0.75em; color: var(--text-muted); }
@@ -88,12 +81,8 @@
                 <option value="dinner">🌙 Dinner</option>
                 <option value="snack">🍎 Snack</option>
             </select>
-            <div style="display:flex; gap:6px;">
-                <input type="text" id="food" placeholder="Food name" style="flex:1; margin:5px 0;" oninput="onFoodInput()" onkeydown="if(event.key==='Enter')searchFood()">
-                <button onclick="searchFood()" style="width:auto; padding:10px 14px; margin:5px 0; white-space:nowrap;">🔍</button>
-            </div>
-            <div id="foodSearchResults"></div>
-            <input type="number" id="cals" placeholder="Calories (or pick from search)">
+            <input type="text" id="food" placeholder="Food Name">
+            <input type="number" id="cals" placeholder="Calories">
             <button onclick="addEntry()">Add Food</button>
             <div id="foodList"></div>
             <hr style="border:0; border-top:1px solid #334155; margin:15px 0;">
@@ -273,7 +262,6 @@
         state.data[date].items.push({ name, cals, category });
         localStorage.setItem('fitData', JSON.stringify(state.data));
         foodInput.value = ''; calsInput.value = '';
-        document.getElementById('foodSearchResults').innerHTML = '';
         updateUI();
     }
 
@@ -461,51 +449,6 @@
         localStorage.setItem('myRoutine', JSON.stringify(state.routine));
         renderRoutine();
         renderTodayChecklist();
-    }
-
-    let searchTimeout = null;
-
-    function onFoodInput() {
-        clearTimeout(searchTimeout);
-        const q = document.getElementById('food').value.trim();
-        if (q.length < 2) { document.getElementById('foodSearchResults').innerHTML = ''; return; }
-        searchTimeout = setTimeout(searchFood, 600);
-    }
-
-    async function searchFood() {
-        const q = document.getElementById('food').value.trim();
-        if (!q) return;
-        const resultsDiv = document.getElementById('foodSearchResults');
-        resultsDiv.innerHTML = '<div class="food-search-results"><div class="search-status">Searching...</div></div>';
-        try {
-            const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=10&fields=product_name,nutriments,brands`);
-            const data = await res.json();
-            const products = (data.products || []).filter(p => p.product_name && p.nutriments && p.nutriments['energy-kcal_100g'] != null);
-            if (products.length === 0) {
-                resultsDiv.innerHTML = '<div class="food-search-results"><div class="search-status">No results found. Enter calories manually.</div></div>';
-                return;
-            }
-            resultsDiv.innerHTML = '<div class="food-search-results">' +
-                products.map(p => {
-                    const name = p.product_name + (p.brands ? ` (${p.brands.split(',')[0].trim()})` : '');
-                    const kcal100 = Math.round(p.nutriments['energy-kcal_100g']);
-                    const safeN = name.replace(/'/g, "\'").replace(/"/g, '&quot;');
-                    return `<div class="food-result-item" onclick="selectFood('${safeN}', ${kcal100})">
-                        <span class="food-result-name">${name}</span>
-                        <span class="food-result-cal">${kcal100} kcal/100g</span>
-                    </div>`;
-                }).join('') +
-            '</div>';
-        } catch(e) {
-            resultsDiv.innerHTML = '<div class="food-search-results"><div class="search-status">Search unavailable. Enter calories manually.</div></div>';
-        }
-    }
-
-    function selectFood(name, kcalPer100g) {
-        document.getElementById('food').value = name;
-        document.getElementById('cals').value = kcalPer100g;
-        document.getElementById('foodSearchResults').innerHTML = '';
-        document.getElementById('cals').focus();
     }
 
     function exportData() {
