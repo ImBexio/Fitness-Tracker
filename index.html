@@ -504,9 +504,9 @@
 
     function showModal(date, data) {
         document.getElementById('modalDate').innerText = date;
-        const dayOfWeek = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date(key + 'T12:00:00').getDay()];
+        const dayOfWeek = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date(date + 'T12:00:00').getDay()];
         const routineTasks = state.routine[dayOfWeek] || [];
-        const dayChecks = state.checks[key] || {};
+        const dayChecks = state.checks[date] || {};
         const doneCount = routineTasks.filter((_, i) => dayChecks[i]).length;
         const checklistHtml = routineTasks.length > 0
             ? `<hr><p style="margin:6px 0 4px; font-size:0.8em; color:#94a3b8; font-weight:bold;">ROUTINE (${doneCount}/${routineTasks.length} done)</p>` +
