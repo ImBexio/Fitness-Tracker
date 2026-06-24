@@ -47,6 +47,14 @@
         .meal-lunch     { border-left: 3px solid #10b981; padding-left: 6px; }
         .meal-dinner    { border-left: 3px solid #8b5cf6; padding-left: 6px; }
         .meal-snack     { border-left: 3px solid #ef4444; padding-left: 6px; }
+        .water-cups { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 8px; }
+        .water-cup { font-size: 1.5em; cursor: pointer; transition: transform 0.15s, opacity 0.15s; user-select: none; opacity: 0.3; }
+        .water-cup.filled { opacity: 1; }
+        .water-cup:hover { transform: scale(1.2); }
+        .water-btn-row { display: flex; gap: 8px; }
+        .water-btn-row button { flex: 1; }
+        .water-progress-bar { height: 10px; background: #334155; border-radius: 10px; overflow: hidden; margin: 8px 0; }
+        .water-progress-fill { height: 100%; background: linear-gradient(90deg, #06b6d4, #3b82f6); border-radius: 10px; transition: width 0.4s; }
     </style>
 </head>
 <body>
@@ -110,6 +118,24 @@
             <button onclick="saveWeight()">Save Weight</button>
             <p>Saved: <span id="savedWeightDisplay">N/A</span></p>
         </div>
+        <div class="card" id="waterCard">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <p style="margin:0; font-weight:bold; color:#06b6d4; font-size:0.95em;">💧 WATER INTAKE</p>
+                <span id="waterLabel" style="font-size:0.85em; color:var(--text-muted);">0 / 2500 mL</span>
+            </div>
+            <div class="water-progress-bar"><div class="water-progress-fill" id="waterProgressFill" style="width:0%;"></div></div>
+            <div style="display:flex; gap:8px; margin-top:10px;">
+                <input type="number" id="waterAmountInput" placeholder="Amount (mL)" min="1" style="flex:1; margin:0;" onkeydown="if(event.key==='Enter') addWaterCustom()">
+                <button onclick="addWaterCustom()" style="background:#0e7490; width:auto; padding:10px 16px; margin:0;">Add</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+                <label style="font-size:0.8em; color:var(--text-muted); white-space:nowrap;">Daily goal:</label>
+                <input type="number" id="waterGoalInput" min="100" max="10000" step="100" placeholder="2500" style="width:75px; padding:6px; font-size:0.9em;" oninput="updateWaterGoal(this.value)">
+                <span style="font-size:0.8em; color:var(--text-muted);">mL</span>
+                <button onclick="resetWater()" style="background:#334155; width:auto; padding:6px 12px; margin:0; font-size:0.8em; margin-left:auto;">Reset</button>
+            </div>
+            <div id="waterLog" style="margin-top:10px;"></div>
+        </div>
         <div class="card">
             <p style="margin:0 0 8px; font-weight:bold; color:var(--text-muted); font-size:0.85em;">DATA BACKUP</p>
             <button onclick="exportData()" style="background:#0f4c75;">⬇ Export Data</button>
@@ -166,8 +192,10 @@
         data: JSON.parse(localStorage.getItem('fitData') || '{}'),
         routine: JSON.parse(localStorage.getItem('myRoutine') || '{}'),
         checks: JSON.parse(localStorage.getItem('fitChecks') || '{}'),
+        water: JSON.parse(localStorage.getItem('fitWater') || '{}'),
         weekOffset: 0,
-        goal: parseInt(localStorage.getItem('calGoal') || 2000)
+        goal: parseInt(localStorage.getItem('calGoal') || 2000),
+        waterGoal: parseInt(localStorage.getItem('waterGoal') || 2500)
     };
     let myChart = null;
     let weightChart = null;
@@ -399,6 +427,7 @@
             }
         });
         document.getElementById('foodList').innerHTML = foodHtml;
+        renderWater();
     }
 
     function addEntry() {
@@ -511,7 +540,23 @@
         const checklistHtml = routineTasks.length > 0
             ? `<hr><p style="margin:6px 0 4px; font-size:0.8em; color:#94a3b8; font-weight:bold;">ROUTINE (${doneCount}/${routineTasks.length} done)</p>` +
               routineTasks.map((t, i) => `<div style="font-size:0.85em; padding:3px 0; color:${dayChecks[i] ? '#03dac6' : '#f8fafc'};">${dayChecks[i] ? '✓' : '○'} ${t}</div>`).join('') : '';
-        document.getElementById('modalDetails').innerHTML = `<p>Consumed: <b>${data.total ?? 0}</b> | Burned: <b>${data.burned ?? 0}</b></p><p>Weight: <b>${data.weight || 'N/A'} lbs</b></p><hr><div style="max-height:200px; overflow-y:auto;">${(data.items || []).map(i => `<div>• ${i.name}: ${i.cals} kcal${i.category ? ' <small style="color:#94a3b8">('+i.category+')</small>' : ''}</div>`).join('')}${checklistHtml}</div>`;
+
+        const dayWater = state.water[date];
+        let waterTotal = 0;
+        let waterEntries = [];
+        if (dayWater) {
+            if (typeof dayWater === 'number') { waterTotal = dayWater; }
+            else { waterTotal = dayWater.total || 0; waterEntries = dayWater.entries || []; }
+        }
+        const waterPct = Math.min((waterTotal / state.waterGoal) * 100, 100).toFixed(0);
+        const waterHtml = `<hr>
+            <p style="margin:6px 0 4px; font-size:0.8em; color:#94a3b8; font-weight:bold;">💧 WATER (${waterTotal} / ${state.waterGoal} mL)</p>
+            <div style="background:#334155; border-radius:6px; overflow:hidden; height:8px; margin-bottom:6px;">
+                <div style="width:${waterPct}%; height:100%; background:linear-gradient(90deg,#06b6d4,#3b82f6); border-radius:6px;"></div>
+            </div>
+            ${waterEntries.length > 0 ? waterEntries.map(e => `<div style="font-size:0.82em; color:#94a3b8;">• ${e} mL</div>`).join('') : '<div style="font-size:0.82em; color:#94a3b8;">No water logged</div>'}`;
+
+        document.getElementById('modalDetails').innerHTML = `<p>Consumed: <b>${data.total ?? 0}</b> | Burned: <b>${data.burned ?? 0}</b></p><p>Weight: <b>${data.weight || 'N/A'} lbs</b></p>${waterHtml}<hr><div style="max-height:200px; overflow-y:auto;">${(data.items || []).map(i => `<div>• ${i.name}: ${i.cals} kcal${i.category ? ' <small style="color:#94a3b8">('+i.category+')</small>' : ''}</div>`).join('')}${checklistHtml}</div>`;
         document.getElementById('dayModal').style.display = 'flex';
     }
 
@@ -615,7 +660,9 @@
             fitData: state.data,
             myRoutine: state.routine,
             fitChecks: state.checks,
+            fitWater: state.water,
             calGoal: state.goal,
+            waterGoal: state.waterGoal,
             exportedAt: new Date().toISOString()
         };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -640,6 +687,8 @@
                 if (payload.fitData) { state.data = payload.fitData; localStorage.setItem('fitData', JSON.stringify(state.data)); }
                 if (payload.myRoutine) { state.routine = payload.myRoutine; localStorage.setItem('myRoutine', JSON.stringify(state.routine)); }
                 if (payload.fitChecks) { state.checks = payload.fitChecks; localStorage.setItem('fitChecks', JSON.stringify(state.checks)); }
+                if (payload.fitWater) { state.water = payload.fitWater; localStorage.setItem('fitWater', JSON.stringify(state.water)); }
+                if (payload.waterGoal) { state.waterGoal = payload.waterGoal; localStorage.setItem('waterGoal', state.waterGoal); }
                 if (payload.calGoal) {
                     state.goal = payload.calGoal;
                     localStorage.setItem('calGoal', state.goal);
@@ -659,10 +708,84 @@
         reader.readAsText(file);
     }
 
+    function getTodayKeyForWater() {
+        const t = new Date();
+        return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    }
+
+    function getWaterDateKey() {
+        return document.getElementById('dateSelector').value;
+    }
+
+    function addWaterCustom() {
+        const input = document.getElementById('waterAmountInput');
+        const amount = parseInt(input.value);
+        if (!amount || amount < 1) return;
+        const key = getWaterDateKey();
+        if (!state.water[key]) state.water[key] = { total: 0, entries: [] };
+        if (typeof state.water[key] === 'number') state.water[key] = { total: state.water[key], entries: [] };
+        state.water[key].entries.push(amount);
+        state.water[key].total = state.water[key].entries.reduce((a, b) => a + b, 0);
+        localStorage.setItem('fitWater', JSON.stringify(state.water));
+        input.value = '';
+        renderWater();
+    }
+
+    function removeWaterEntry(idx) {
+        const key = getWaterDateKey();
+        if (!state.water[key] || !state.water[key].entries) return;
+        state.water[key].entries.splice(idx, 1);
+        state.water[key].total = state.water[key].entries.reduce((a, b) => a + b, 0);
+        localStorage.setItem('fitWater', JSON.stringify(state.water));
+        renderWater();
+    }
+
+    function resetWater() {
+        const key = getWaterDateKey();
+        state.water[key] = { total: 0, entries: [] };
+        localStorage.setItem('fitWater', JSON.stringify(state.water));
+        renderWater();
+    }
+
+    function updateWaterGoal(val) {
+        const n = parseInt(val);
+        if (!n || n < 100) return;
+        state.waterGoal = n;
+        localStorage.setItem('waterGoal', n);
+        renderWater();
+    }
+
+    function renderWater() {
+        const key = getWaterDateKey();
+        const dayWater = state.water[key];
+        let total = 0;
+        let entries = [];
+        if (dayWater) {
+            if (typeof dayWater === 'number') { total = dayWater; }
+            else { total = dayWater.total || 0; entries = dayWater.entries || []; }
+        }
+        const goal = state.waterGoal;
+        const pct = Math.min((total / goal) * 100, 100);
+
+        document.getElementById('waterLabel').textContent = `${total} / ${goal} mL`;
+        document.getElementById('waterProgressFill').style.width = pct + '%';
+        document.getElementById('waterGoalInput').value = goal;
+
+        const logEl = document.getElementById('waterLog');
+        if (entries.length === 0) {
+            logEl.innerHTML = '';
+            return;
+        }
+        logEl.innerHTML = entries.map((e, i) =>
+            `<div class="task-item" style="font-size:0.85em;">💧 ${e} mL <button style="width:auto; padding:2px 8px;" onclick="removeWaterEntry(${i})">X</button></div>`
+        ).join('');
+    }
+
     const _t=new Date(); document.getElementById('dateSelector').value=`${_t.getFullYear()}-${String(_t.getMonth()+1).padStart(2,'0')}-${String(_t.getDate()).padStart(2,'0')}`;
     document.getElementById('goalSlider').value = state.goal;
     document.getElementById('goalValue').innerText = state.goal;
     updateUI();
+    renderWater();
 </script>
 </body>
 </html>
