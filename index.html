@@ -244,7 +244,7 @@
             else if (range === 'month') labels.push(d.getDate() === 1 ? d.toLocaleDateString(undefined, { month: 'short' }) : '');
             else labels.push(d.getMonth() === 0 && d.getDate() === 1 ? d.getFullYear() : '');
             
-            data.push((dayData.total || 0) - (dayData.burned || 0));
+            data.push(dayData.total || 0);
         }
 
         const goalLine = Array(data.length).fill(state.goal);
@@ -254,7 +254,7 @@
         myChart = new Chart(ctx, {
             type: 'line',
             data: { labels: labels, datasets: [
-                { label: 'Net Cals', data: data, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.3, pointRadius: (range === 'year') ? 0 : 3 },
+                { label: 'Calories', data: data, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.3, pointRadius: (range === 'year') ? 0 : 3 },
                 { label: 'Goal', data: goalLine, borderColor: '#f59e0b', borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, fill: false, tension: 0 }
             ]},
             options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
