@@ -670,7 +670,7 @@
                 box.style.outline="2px solid #03dac6";
             }
             if((day.total||0)||(day.burned||0)){
-                box.classList.add(net>state.goal?'cal-bad':'cal-good');
+                box.classList.add(displayed>state.goal?'cal-bad':'cal-good');
             }
             box.onclick=()=>showModal(key, day);
             box.innerHTML=`<strong>${i}</strong><br>${displayed}${day.weight?`<br><small>${day.weight}lb</small>`:''}`;
