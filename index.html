@@ -47,6 +47,11 @@
         .meal-lunch     { border-left: 3px solid #10b981; padding-left: 6px; }
         .meal-dinner    { border-left: 3px solid #8b5cf6; padding-left: 6px; }
         .meal-snack     { border-left: 3px solid #ef4444; padding-left: 6px; }
+        .autocomplete-wrapper { position: relative; }
+        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #1e293b; border: 1px solid #334155; border-radius: 8px; z-index: 100; max-height: 200px; overflow-y: auto; margin-top: 2px; }
+        .autocomplete-item { padding: 10px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; }
+        .autocomplete-item:hover { background: #334155; }
+        .autocomplete-item .ac-cals { color: #03dac6; font-weight: bold; font-size: 0.85em; }
         .water-cups { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 8px; }
         .water-cup { font-size: 1.5em; cursor: pointer; transition: transform 0.15s, opacity 0.15s; user-select: none; opacity: 0.3; }
         .water-cup.filled { opacity: 1; }
@@ -105,7 +110,10 @@
                 <option value="dinner">🌙 Dinner</option>
                 <option value="snack">🍎 Snack</option>
             </select>
-            <input type="text" id="food" placeholder="Food Name">
+            <div class="autocomplete-wrapper">
+                <input type="text" id="food" placeholder="Food Name" autocomplete="off" oninput="showFoodSuggestions()" onkeydown="handleFoodKey(event)">
+                <div class="autocomplete-list" id="autocompleteList" style="display:none;"></div>
+            </div>
             <input type="number" id="cals" placeholder="Calories">
             <button onclick="addEntry()">Add Food</button>
             <div id="foodList"></div>
@@ -595,6 +603,53 @@
         document.getElementById('foodList').innerHTML = foodHtml;
         renderWater();
     }
+
+    function getFoodHistory() {
+        const freq = {};
+        Object.values(state.data).forEach(day => {
+            (day.items || []).forEach(item => {
+                const key = item.name.toLowerCase();
+                if (!freq[key]) freq[key] = { name: item.name, cals: item.cals, count: 0 };
+                freq[key].count++;
+                freq[key].cals = item.cals; // use most recent cal value
+            });
+        });
+        return Object.values(freq).sort((a, b) => b.count - a.count);
+    }
+
+    function showFoodSuggestions() {
+        const input = document.getElementById('food');
+        const list = document.getElementById('autocompleteList');
+        const query = input.value.trim().toLowerCase();
+        if (!query) { list.style.display = 'none'; return; }
+        const matches = getFoodHistory().filter(f => f.name.toLowerCase().includes(query)).slice(0, 6);
+        if (matches.length === 0) { list.style.display = 'none'; return; }
+        list.innerHTML = matches.map((f, i) =>
+            `<div class="autocomplete-item" onclick="selectFood('${f.name.replace(/'/g,"\'")}', ${f.cals})">
+                <span>${f.name}</span>
+                <span class="ac-cals">${f.cals} kcal <span style="color:#94a3b8; font-weight:normal;">(×${f.count})</span></span>
+            </div>`
+        ).join('');
+        list.style.display = 'block';
+    }
+
+    function selectFood(name, cals) {
+        document.getElementById('food').value = name;
+        document.getElementById('cals').value = cals;
+        document.getElementById('autocompleteList').style.display = 'none';
+    }
+
+    function handleFoodKey(e) {
+        if (e.key === 'Escape') document.getElementById('autocompleteList').style.display = 'none';
+        if (e.key === 'Enter') { document.getElementById('autocompleteList').style.display = 'none'; addEntry(); }
+    }
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.autocomplete-wrapper')) {
+            const list = document.getElementById('autocompleteList');
+            if (list) list.style.display = 'none';
+        }
+    });
 
     function addEntry() {
         const date = document.getElementById('dateSelector').value;
